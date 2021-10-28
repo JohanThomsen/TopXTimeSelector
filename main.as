@@ -1,21 +1,17 @@
 auto app = GetApp();
 void Main() {
-    int timeForPositionWanted = GetTopNTime(1000);
-    print(tostring(timeForPositionWanted));
+    bool buttonClicked = false;
+    int timeForPositionWanted = 5;
+    RenderInterface(&timeForPositionWanted, &buttonClicked);
+    if(buttonClicked == true){
+        print(positionWanted);
+        timeForPositionWanted = GetTopNTime(positionWanted);
+        print(timeForPositionWanted);
+    }
+    //int timeForPositionWanted = GetTopNTime(75);
+    //print(tostring(timeForPositionWanted));
     print("up here again");
 }
-
-//Gets the map ID, if player is not in a map an error can be thrown
-string get_mapID(){
-    if(app.RootMap != null){
-        string mapID = app.RootMap.MapInfo.MapUid;
-        return mapID;
-    } else {
-        print("Map doesnt exist");
-    }
-    return "0";
-}
-
 //Main function to hold all the logic for getting the Top N time
 int GetTopNTime(int positionWanted){
     int timeForPositionWanted = 0;
@@ -29,23 +25,47 @@ int GetTopNTime(int positionWanted){
     return timeForPositionWanted;
 }
 
-//TODO Fix searchtime not updating/Keeps getting reset.
+void RenderInterface(int *timeForPositionWanted, bool *buttonClicked){
+    int positionWanted;
+    print(*timeForPositionWanted);
+    UI::SetNextWindowContentSize(780, 230);
+    UI::Begin("TopxSelector");
+    positionWanted = UI::InputInt("Input the position you want to find:", 1);
+    UI::NewLine();
+    *buttonClicked = UI::Button("Enter");
+    UI::End();
+}
+//Gets the map ID, if player is not in a map an error can be thrown
+string get_mapID(){
+    if(app.RootMap != null){
+        string mapID = app.RootMap.MapInfo.MapUid;
+        return mapID;
+    } else {
+        print("Map doesnt exist");
+    }
+    return "0";
+}
+
+
 int FindWantedTime(int positionWanted, string mapID, string someID, int startTime, int startInterval){
     //TODO Make check for checking for top 15 time
     //TODO Make check for checking for top 65 time
+    //TODO for now dont check within the first 65
     bool sentinel = false;
     int searchTime = startTime;
     //Naive Approach
     while(sentinel = true){
         print(searchTime);
+        
         string nextTimeResponse = SendJSONRequest(Net::HttpMethod::Get, "https://trackmania.io/api/leaderboard/" + someID + "/" + mapID + "?from=" + searchTime);
         Json::Value next50 = ResponseToJSON(nextTimeResponse, Json::Type::Object);
-        //This doesnt work
+
         int lowestPos = next50['tops'][0]['position'];
         print(lowestPos);
         searchTime = next50['tops'][49]['time'];
         print(searchTime);
         print(positionWanted - 50);
+
         if (positionWanted-50 < lowestPos){
             sentinel = true;
             return next50['tops'][positionWanted-lowestPos]['time'];
