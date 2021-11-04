@@ -4,31 +4,33 @@ int positionWanted;
 bool buttonClickedOnce = false;
 int timeForPositionWanted;
 int positionFound;
+int savedPositionWanted;
 void Main() {
     positionWanted = 0;
-    timeForPositionWanted = CheckForButtonClicksAndExecute(timeForPositionWanted);
+    while(true){
+        CheckForButtonClicksAndExecute();
+    }  
     RenderInterface();
     print("up here again");
 }
 
-int CheckForButtonClicksAndExecute(int timeForPositionWanted){
-    while(true){
-            if(buttonClicked == true){
-                    print(positionWanted);
-                    timeForPositionWanted = GetTopNTime(positionWanted);
-                    buttonClickedOnce = true;
-                    print(timeForPositionWanted);
-                    return timeForPositionWanted;
-                }
-            else{
-                yield();
-            }
-        }
-    return 0;
+void CheckForButtonClicksAndExecute(){
+    if(buttonClicked == true){
+        print(positionWanted);
+        GetTopNTime();
+        savedPositionWanted = positionWanted;
+        buttonClickedOnce = true;
+        print(timeForPositionWanted);
+        buttonClicked = false;
+        return;
+    }
+    else{
+        yield();
+    }  
 }
 
 //Primary function to hold all the logic for getting the Top N time
-int GetTopNTime(int positionWanted){
+void GetTopNTime(){
     string mapID = get_mapID();
     string someID = "45569279-a101-446d-b5d6-649471deadcf"; // IDK what this is. Find out. Think it is some personal TM.io ID.
 
@@ -37,20 +39,19 @@ int GetTopNTime(int positionWanted){
 
     int startTime = top50['tops'][0]['time'];
     int startInterval = top50['tops'][14]['time'] - startTime;
-    timeForPositionWanted = FindWantedTime(positionWanted, mapID, someID, startTime, startInterval);
-    return timeForPositionWanted;
+    FindWantedTime(mapID, someID, startTime, startInterval);
 }
 
 
-int FindWantedTime(int positionWanted, string mapID, string someID, int startTime, int startInterval){
+void FindWantedTime(string mapID, string someID, int startTime, int startInterval){
     //TODO Make check for checking for top 15 time
     //TODO Make check for checking for top 65 time
     //TODO for now dont check within the first 65
     bool sentinel = false;
     int searchTime = startTime;
     //Naive Approach
-    while(sentinel = true){
-        print(searchTime);
+    while(sentinel == false){
+        print("SearchTime: " + searchTime);
         
         string nextTimeResponse = SendJSONRequest(Net::HttpMethod::Get, "https://trackmania.io/api/leaderboard/" + someID + "/" + mapID + "?from=" + searchTime);
         Json::Value next50 = ResponseToJSON(nextTimeResponse, Json::Type::Object);
@@ -63,11 +64,10 @@ int FindWantedTime(int positionWanted, string mapID, string someID, int startTim
             //@beta
             positionFound = next50['tops'][positionWanted-lowestPos]['position'];
             print(tostring("position found: " + positionFound));
-            //print("in FineWantedtime" + tostring(next50['tops'][positionWanted-lowestPos]['time']));
-            return next50['tops'][positionWanted-lowestPos]['time'];
+            print("Wanted: " + positionWanted + "LowestPos: " + lowestPos);
+            timeForPositionWanted = next50['tops'][positionWanted-lowestPos]['time'];
         }
     }
-    return 0;
 }
 
 //Gets the map ID, if player is not in a map an error can be thrown
@@ -135,12 +135,14 @@ Json::Value ResponseToJSON(const string &in HTTPResponse, Json::Type ExpectedTyp
 void RenderInterface(){
     UI::SetNextWindowContentSize(780, 230);
     UI::Begin("TopxSelector");
-    positionWanted = UI::InputInt("Input the position you want to find:", positionWanted, 5);
+    UI::Text("Input the position you want to find:");
+    UI::NewLine();
+    positionWanted = UI::InputInt("",positionWanted, 5);
     UI::NewLine();
     buttonClicked = UI::Button("Enter");
     if(buttonClickedOnce == true){
         UI::NewLine();
-        UI::Text("Time for position " + positionWanted + ": " + timeForPositionWanted);
+        UI::Text("Time for position " + savedPositionWanted + ": " + timeForPositionWanted);
     }
     UI::End();
 }
