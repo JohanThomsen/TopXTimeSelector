@@ -1,8 +1,73 @@
 auto app = GetApp();
+bool buttonClicked = false;
+int positionWanted;
+bool buttonClickedOnce = false;
+int timeForPositionWanted;
+int positionFound;
+int savedPositionWanted;
 void Main() {
-    int timeForPositionWanted = GetTopNTime(1000);
-    print(tostring(timeForPositionWanted));
+    positionWanted = 0;
+    while(true){
+        CheckForButtonClicksAndExecute();
+    }  
+    RenderInterface();
     print("up here again");
+}
+
+void CheckForButtonClicksAndExecute(){
+    if(buttonClicked == true){
+        print(positionWanted);
+        GetTopNTime();
+        savedPositionWanted = positionWanted;
+        buttonClickedOnce = true;
+        print(timeForPositionWanted);
+        buttonClicked = false;
+        return;
+    }
+    else{
+        yield();
+    }  
+}
+
+//Primary function to hold all the logic for getting the Top N time
+void GetTopNTime(){
+    string mapID = get_mapID();
+    string someID = "45569279-a101-446d-b5d6-649471deadcf"; // IDK what this is. Find out. Think it is some personal TM.io ID.
+
+    string timeResponse = SendJSONRequest(Net::HttpMethod::Get, "https://trackmania.io/api/leaderboard/" + someID + "/" + mapID); //Get PB time as starting point
+    Json::Value top50 = ResponseToJSON(timeResponse, Json::Type::Object);
+
+    int startTime = top50['tops'][0]['time'];
+    int startInterval = top50['tops'][14]['time'] - startTime;
+    FindWantedTime(mapID, someID, startTime, startInterval);
+}
+
+
+void FindWantedTime(string mapID, string someID, int startTime, int startInterval){
+    //TODO Make check for checking for top 15 time
+    //TODO Make check for checking for top 65 time
+    //TODO for now dont check within the first 65
+    bool sentinel = false;
+    int searchTime = startTime;
+    //Naive Approach
+    while(sentinel == false){
+        print("SearchTime: " + searchTime);
+        
+        string nextTimeResponse = SendJSONRequest(Net::HttpMethod::Get, "https://trackmania.io/api/leaderboard/" + someID + "/" + mapID + "?from=" + searchTime);
+        Json::Value next50 = ResponseToJSON(nextTimeResponse, Json::Type::Object);
+
+        int lowestPos = next50['tops'][0]['position'];
+        searchTime = next50['tops'][49]['time'];
+
+        if (positionWanted-50 < lowestPos){
+            sentinel = true;
+            //@beta
+            positionFound = next50['tops'][positionWanted-lowestPos]['position'];
+            print(tostring("position found: " + positionFound));
+            print("Wanted: " + positionWanted + "LowestPos: " + lowestPos);
+            timeForPositionWanted = next50['tops'][positionWanted-lowestPos]['time'];
+        }
+    }
 }
 
 //Gets the map ID, if player is not in a map an error can be thrown
@@ -14,44 +79,6 @@ string get_mapID(){
         print("Map doesnt exist");
     }
     return "0";
-}
-
-//Main function to hold all the logic for getting the Top N time
-int GetTopNTime(int positionWanted){
-    int timeForPositionWanted = 0;
-    string mapID = get_mapID();
-    string someID = "45569279-a101-446d-b5d6-649471deadcf"; // IDK what this is. Find out. Think it is some personal TM.io ID.
-    string timeResponse = SendJSONRequest(Net::HttpMethod::Get, "https://trackmania.io/api/leaderboard/" + someID + "/" + mapID); //Get PB time as starting point
-    Json::Value top50 = ResponseToJSON(timeResponse, Json::Type::Object);
-    int startTime = top50['tops'][0]['time'];
-    int startInterval = top50['tops'][14]['time'] - startTime;
-    timeForPositionWanted = FindWantedTime(positionWanted, mapID, someID, startTime, startInterval);
-    return timeForPositionWanted;
-}
-
-//TODO Fix searchtime not updating/Keeps getting reset.
-int FindWantedTime(int positionWanted, string mapID, string someID, int startTime, int startInterval){
-    //TODO Make check for checking for top 15 time
-    //TODO Make check for checking for top 65 time
-    bool sentinel = false;
-    int searchTime = startTime;
-    //Naive Approach
-    while(sentinel = true){
-        print(searchTime);
-        string nextTimeResponse = SendJSONRequest(Net::HttpMethod::Get, "https://trackmania.io/api/leaderboard/" + someID + "/" + mapID + "?from=" + searchTime);
-        Json::Value next50 = ResponseToJSON(nextTimeResponse, Json::Type::Object);
-        //This doesnt work
-        int lowestPos = next50['tops'][0]['position'];
-        print(lowestPos);
-        searchTime = next50['tops'][49]['time'];
-        print(searchTime);
-        print(positionWanted - 50);
-        if (positionWanted-50 < lowestPos){
-            sentinel = true;
-            return next50['tops'][positionWanted-lowestPos]['time'];
-        }
-    }
-    return 0;
 }
 
 //Adds headers to an HTTP request
@@ -103,4 +130,19 @@ Json::Value ResponseToJSON(const string &in HTTPResponse, Json::Type ExpectedTyp
         return ReturnedObject;
     }
     return ReturnedObject;
+}
+
+void RenderInterface(){
+    UI::SetNextWindowContentSize(780, 230);
+    UI::Begin("TopxSelector");
+    UI::Text("Input the position you want to find:");
+    UI::NewLine();
+    positionWanted = UI::InputInt("",positionWanted, 5);
+    UI::NewLine();
+    buttonClicked = UI::Button("Enter");
+    if(buttonClickedOnce == true){
+        UI::NewLine();
+        UI::Text("Time for position " + savedPositionWanted + ": " + timeForPositionWanted);
+    }
+    UI::End();
 }
